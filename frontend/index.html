@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VeriCross - Hallucination Detector</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        textarea { width: 100%; height: 100px; margin: 10px 0; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        #results { margin-top: 20px; padding: 10px; border: 1px solid #ccc; }
+        .heatmap { display: flex; flex-wrap: wrap; }
+        .sentence { margin: 5px; padding: 5px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>VeriCross - Cross-lingual Hallucination Detector</h1>
+    <form id="evaluationForm">
+        <label for="source">Source Text:</label>
+        <textarea id="source" placeholder="Enter the original text..."></textarea>
+        
+        <label for="summary">Summary Text:</label>
+        <textarea id="summary" placeholder="Enter the summary..."></textarea>
+        
+        <label for="sourceLang">Source Language:</label>
+        <input type="text" id="sourceLang" value="en" placeholder="e.g., en, es, fr">
+        
+        <label for="summaryLang">Summary Language:</label>
+        <input type="text" id="summaryLang" value="en" placeholder="e.g., en, es, fr">
+        
+        <button type="submit">Evaluate</button>
+    </form>
+    
+    <div id="results"></div>
+    
+    <script>
+        document.getElementById('evaluationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const data = {
+                source_text: document.getElementById('source').value,
+                summary_text: document.getElementById('summary').value,
+                source_lang: document.getElementById('sourceLang').value,
+                summary_lang: document.getElementById('summaryLang').value
+            };
+            
+            try {
+                const response = await fetch('http://localhost:8000/evaluate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                displayResults(result);
+            } catch (error) {
+                document.getElementById('results').innerHTML = '<p>Error: ' + error.message + '</p>';
+            }
+        });
+        
+        function displayResults(result) {
+            let html = '<h2>Evaluation Results</h2>';
+            html += '<p><strong>Entailment:</strong> ' + result.entailment.label + ' (Score: ' + result.entailment.score.toFixed(2) + ')</p>';
+            html += '<p><strong>Overall Confidence:</strong> ' + result.overall_confidence.toFixed(2) + '</p>';
+            
+            html += '<h3>Entity Alignment</h3>';
+            html += '<p><strong>Source Entities:</strong> ' + result.entity_alignment.source_entities.map(e => e.text + '(' + e.label + ')').join(', ') + '</p>';
+            html += '<p><strong>Summary Entities:</strong> ' + result.entity_alignment.summary_entities.map(e => e.text + '(' + e.label + ')').join(', ') + '</p>';
+            html += '<p><strong>Mismatches:</strong> ' + result.entity_alignment.mismatches.map(e => e.text + '(' + e.label + ')').join(', ') + '</p>';
+            
+            html += '<h3>Confidence Heatmap</h3>';
+            html += '<div class="heatmap">';
+            result.heatmap.sentence_scores.forEach((score, i) => {
+                const intensity = Math.floor(score * 255);
+                html += '<div class="sentence" style="background-color: rgba(255, ' + (255 - intensity) + ', ' + (255 - intensity) + ', 0.5);">Sentence ' + (i+1) + ': ' + score.toFixed(2) + '</div>';
+            });
+            html += '</div>';
+            
+            document.getElementById('results').innerHTML = html;
+        }
+    </script>
+</body>
+</html>
