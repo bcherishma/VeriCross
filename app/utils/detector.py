@@ -181,7 +181,15 @@ class HallucinationDetector:
                 # Check if labels are compatible (same or similar entity type)
                 label_compatible = are_compatible_labels(src_label, sum_label)
                 
-                # Use embeddings for semantic similarity (cross-lingual)
+                # First, check for exact text match (case-insensitive) - highest priority
+                if src_text.lower().strip() == sum_text.lower().strip() and label_compatible:
+                    best_score = 1.0
+                    best_match = sum_ent
+                    best_idx = j
+                    best_label_match = (src_label == sum_label)
+                    break  # Exact match found, no need to check others
+                
+                # If no exact match, use embeddings for semantic similarity (cross-lingual)
                 try:
                     src_emb = self.embedder.encode([src_text], convert_to_tensor=True)
                     sum_emb = self.embedder.encode([sum_text], convert_to_tensor=True)
@@ -194,19 +202,16 @@ class HallucinationDetector:
                         adjusted_score = min(1.0, similarity + 0.05)
                     
                     # Accept match if similarity is high enough and labels are compatible
-                    if (similarity >= SIMILARITY_THRESHOLD and label_compatible and 
+                    # Only consider if we don't already have an exact match
+                    if (best_score < 1.0 and similarity >= SIMILARITY_THRESHOLD and label_compatible and 
                         (adjusted_score > best_score or (best_match and src_label == sum_label and not best_label_match))):
                         best_score = similarity
                         best_match = sum_ent
                         best_idx = j
                         best_label_match = (src_label == sum_label)
                 except Exception as e:
-                    # Fallback: exact text match (case-insensitive)
-                    if src_text.lower() == sum_text.lower() and label_compatible:
-                        best_score = 1.0
-                        best_match = sum_ent
-                        best_idx = j
-                        best_label_match = (src_label == sum_label)
+                    # If encoding fails and no exact match, skip this entity
+                    continue
             
             if best_match:
                 matches.append({
