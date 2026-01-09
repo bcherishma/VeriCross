@@ -1,0 +1,12 @@
+{
+    "python.defaultInterpreterPath": "python3",
+    "python.terminal.activateEnvironment": true,
+    "files.associations": {
+        "*.py": "python"
+    },
+    "editor.formatOnSave": true,
+    "python.formatting.provider": "black",
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": false,
+    "python.linting.flake8Enabled": true
+}
