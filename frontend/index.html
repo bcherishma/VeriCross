@@ -4,46 +4,392 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VeriCross - Hallucination Detector</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        textarea { width: 100%; height: 100px; margin: 10px 0; }
-        button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
-        button:hover { background: #0056b3; }
-        #results { margin-top: 20px; padding: 10px; border: 1px solid #ccc; }
-        .heatmap { display: flex; flex-wrap: wrap; }
-        .sentence { margin: 5px; padding: 5px; border-radius: 3px; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            padding: 20px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 50px rgba(0,0,0,0.15);
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #555;
+            font-size: 0.95rem;
+        }
+
+        textarea, input[type="text"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+            resize: vertical;
+        }
+
+        textarea {
+            min-height: 120px;
+        }
+
+        textarea:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .lang-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            margin-top: 10px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #results {
+            display: none;
+        }
+
+        #results.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .results-header h2 {
+            color: #333;
+            font-size: 1.8rem;
+        }
+
+        .score-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .score-high {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .score-medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .score-low {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .metric-label {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .entailment-result {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .entailment-label {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            text-transform: capitalize;
+        }
+
+        .entailment-entailment {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .entailment-contradiction {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .entailment-neutral {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .section-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #333;
+            margin: 30px 0 15px 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .entities-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .entity-tag {
+            padding: 6px 12px;
+            background: #e3f2fd;
+            color: #1976d2;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .entity-tag.mismatch {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .heatmap {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .sentence-card {
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            color: white;
+            transition: transform 0.2s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .sentence-card:hover {
+            transform: scale(1.05);
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border-left: 4px solid #dc3545;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .lang-inputs {
+                grid-template-columns: 1fr;
+            }
+
+            .card {
+                padding: 20px;
+            }
+        }
     </style>
 </head>
 <body>
-    <h1>VeriCross - Cross-lingual Hallucination Detector</h1>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 VeriCross</h1>
+            <p>Cross-lingual Hallucination Detection Suite</p>
+        </div>
+
+        <div class="card">
     <form id="evaluationForm">
-        <label for="source">Source Text:</label>
-        <textarea id="source" placeholder="Enter the original text..."></textarea>
-        
-        <label for="summary">Summary Text:</label>
-        <textarea id="summary" placeholder="Enter the summary..."></textarea>
-        
-        <label for="sourceLang">Source Language:</label>
-        <input type="text" id="sourceLang" value="en" placeholder="e.g., en, es, fr">
-        
-        <label for="summaryLang">Summary Language:</label>
-        <input type="text" id="summaryLang" value="en" placeholder="e.g., en, es, fr">
-        
-        <button type="submit">Evaluate</button>
+                <div class="form-group">
+                    <label for="source">Source Text</label>
+                    <textarea id="source" placeholder="Enter the original text that you want to verify against..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="summary">Summary Text</label>
+                    <textarea id="summary" placeholder="Enter the summary or generated text to evaluate..."></textarea>
+                </div>
+                
+                <button type="submit" class="submit-btn" id="submitBtn">
+                    🚀 Evaluate Summary
+                </button>
     </form>
     
-    <div id="results"></div>
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Analyzing text... This may take a moment</p>
+            </div>
+        </div>
+        
+        <div id="results" class="card"></div>
+    </div>
     
     <script>
-        document.getElementById('evaluationForm').addEventListener('submit', async (e) => {
+        const form = document.getElementById('evaluationForm');
+        const resultsDiv = document.getElementById('results');
+        const loadingDiv = document.getElementById('loading');
+        const submitBtn = document.getElementById('submitBtn');
+
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            const sourceText = document.getElementById('source').value.trim();
+            const summaryText = document.getElementById('summary').value.trim();
+            
+            if (!sourceText || !summaryText) {
+                alert('Please fill in both source and summary text fields.');
+                return;
+            }
+            
             const data = {
-                source_text: document.getElementById('source').value,
-                summary_text: document.getElementById('summary').value,
-                source_lang: document.getElementById('sourceLang').value,
-                summary_lang: document.getElementById('summaryLang').value
+                source_text: sourceText,
+                summary_text: summaryText,
+                source_lang: 'auto',
+                summary_lang: 'auto'
             };
+            
+            // Show loading, hide results
+            loadingDiv.classList.add('active');
+            resultsDiv.classList.remove('active');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ Processing...';
             
             try {
                 const response = await fetch('http://localhost:8000/evaluate', {
@@ -52,32 +398,259 @@
                     body: JSON.stringify(data)
                 });
                 
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+                
                 const result = await response.json();
                 displayResults(result);
             } catch (error) {
-                document.getElementById('results').innerHTML = '<p>Error: ' + error.message + '</p>';
+                resultsDiv.innerHTML = `
+                    <div class="error-message">
+                        <strong>Error:</strong> ${error.message}<br>
+                        Make sure the backend server is running on http://localhost:8000
+                    </div>
+                `;
+                resultsDiv.classList.add('active');
+            } finally {
+                loadingDiv.classList.remove('active');
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🚀 Evaluate Summary';
             }
         });
         
         function displayResults(result) {
-            let html = '<h2>Evaluation Results</h2>';
-            html += '<p><strong>Entailment:</strong> ' + result.entailment.label + ' (Score: ' + result.entailment.score.toFixed(2) + ')</p>';
-            html += '<p><strong>Overall Confidence:</strong> ' + result.overall_confidence.toFixed(2) + '</p>';
+            const confidence = result.overall_confidence || 0;
+            const confidenceClass = confidence >= 0.7 ? 'score-high' : confidence >= 0.4 ? 'score-medium' : 'score-low';
             
-            html += '<h3>Entity Alignment</h3>';
-            html += '<p><strong>Source Entities:</strong> ' + result.entity_alignment.source_entities.map(e => e.text + '(' + e.label + ')').join(', ') + '</p>';
-            html += '<p><strong>Summary Entities:</strong> ' + result.entity_alignment.summary_entities.map(e => e.text + '(' + e.label + ')').join(', ') + '</p>';
-            html += '<p><strong>Mismatches:</strong> ' + result.entity_alignment.mismatches.map(e => e.text + '(' + e.label + ')').join(', ') + '</p>';
+            // Language mapping for display
+            const langNames = {
+                'en': 'English', 'hi': 'Hindi', 'ta': 'Tamil', 'te': 'Telugu', 'kn': 'Kannada',
+                'ml': 'Malayalam', 'mr': 'Marathi', 'gu': 'Gujarati', 'pa': 'Punjabi',
+                'bn': 'Bengali', 'ur': 'Urdu', 'or': 'Odia', 'as': 'Assamese',
+                'ne': 'Nepali', 'si': 'Sinhala', 'de': 'German', 'fr': 'French',
+                'es': 'Spanish', 'it': 'Italian', 'pt': 'Portuguese', 'ru': 'Russian',
+                'zh': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean', 'ar': 'Arabic'
+            };
             
-            html += '<h3>Confidence Heatmap</h3>';
-            html += '<div class="heatmap">';
-            result.heatmap.sentence_scores.forEach((score, i) => {
-                const intensity = Math.floor(score * 255);
-                html += '<div class="sentence" style="background-color: rgba(255, ' + (255 - intensity) + ', ' + (255 - intensity) + ', 0.5);">Sentence ' + (i+1) + ': ' + score.toFixed(2) + '</div>';
-            });
+            const detectedSourceLang = result.detected_source_lang || 'en';
+            const detectedSummaryLang = result.detected_summary_lang || 'en';
+            const sourceLangName = langNames[detectedSourceLang] || detectedSourceLang.toUpperCase();
+            const summaryLangName = langNames[detectedSummaryLang] || detectedSummaryLang.toUpperCase();
+            
+            let html = `
+                <div class="results-header">
+                    <h2>📊 Evaluation Results</h2>
+                    <span class="score-badge ${confidenceClass}">
+                        Confidence: ${(confidence * 100).toFixed(1)}%
+                    </span>
+                </div>
+                
+                <div style="padding: 15px; background: #e3f2fd; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 20px; flex-wrap: wrap; align-items: center;">
+                    <div>
+                        <strong style="color: #1976d2;">🌐 Detected Languages:</strong>
+                        <span style="margin-left: 10px;">
+                            Source: <strong>${sourceLangName}</strong> (${detectedSourceLang})
+                            <span style="margin: 0 10px;">→</span>
+                            Summary: <strong>${summaryLangName}</strong> (${detectedSummaryLang})
+                        </span>
+                    </div>
+                </div>
+                
+                ${result.executive_summary ? `
+                <div style="padding: 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);">
+                    <h3 style="color: white; font-size: 1.3rem; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                        <span>📋 EXECUTIVE SUMMARY</span>
+                    </h3>
+                    <p style="color: white; font-size: 1.05rem; line-height: 1.7; margin: 0;">
+                        ${result.executive_summary}
+                    </p>
+                </div>
+                ` : ''}
+                
+                <div class="metric-card">
+                    <div class="metric-label">Semantic Entailment</div>
+                    <div class="entailment-result">
+                        <span class="entailment-label entailment-${result.entailment.label}">
+                            ${result.entailment.label}
+                        </span>
+                        <span class="metric-value">${(result.entailment.score * 100).toFixed(1)}%</span>
+                    </div>
+                </div>
+            `;
+            
+            // Add semantic similarity if available
+            if (result.entity_alignment && result.entity_alignment.semantic_similarity !== undefined) {
+                const semSim = result.entity_alignment.semantic_similarity;
+                const semSimPercent = (semSim * 100).toFixed(1);
+                html += `
+                    <div class="metric-card">
+                        <div class="metric-label">Cross-lingual Semantic Similarity</div>
+                        <div style="display: flex; align-items: center; gap: 15px; margin-top: 10px;">
+                            <div style="flex: 1; height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden;">
+                                <div style="height: 100%; width: ${semSimPercent}%; background: linear-gradient(90deg, #28a745, #ffc107, #dc3545); border-radius: 4px;"></div>
+                            </div>
+                            <span class="metric-value">${semSimPercent}%</span>
+                        </div>
+                        <p style="color: #666; font-size: 0.85rem; margin-top: 8px;">Overall semantic similarity between source and summary</p>
+                    </div>
+                `;
+            }
+            
+            // Entity Alignment Section
+            html += '<div class="section-title">🔗 Entity Alignment</div>';
+            
+            if (result.entity_alignment) {
+                // Show Matches (entities that align across languages)
+                if (result.entity_alignment.matches && result.entity_alignment.matches.length > 0) {
+                    html += '<div style="margin-bottom: 20px;">';
+                    html += '<strong style="color: #155724; font-size: 1.1rem;">✅ Matched Entities (' + result.entity_alignment.matches.length + '):</strong>';
+                    html += '<div style="margin-top: 10px; display: grid; gap: 10px;">';
+                    result.entity_alignment.matches.forEach(match => {
+                        const similarityPercent = (match.similarity * 100).toFixed(0);
+                        html += '<div style="padding: 12px; background: #d4edda; border-radius: 8px; border-left: 4px solid #28a745;">';
+                        html += '<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">';
+                        html += '<div><strong>' + match.source_text + '</strong> <small style="color: #666;">(' + match.source_label + ')</small>';
+                        html += ' <span style="margin: 0 8px; color: #666;">→</span> ';
+                        html += '<strong>' + match.summary_text + '</strong> <small style="color: #666;">(' + match.summary_label + ')</small></div>';
+                        html += '<span style="background: #28a745; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.85rem; font-weight: 600;">';
+                        html += similarityPercent + '% match</span></div></div>';
+                    });
+                    html += '</div></div>';
+                }
+                
+                // Show Mismatches (entities in source but not found in summary)
+                if (result.entity_alignment.mismatches && result.entity_alignment.mismatches.length > 0) {
+                    html += '<div style="margin-bottom: 20px;">';
+                    html += '<strong style="color: #721c24; font-size: 1.1rem;">⚠️ Missing Entities (' + result.entity_alignment.mismatches.length + '):</strong>';
+                    html += '<p style="color: #666; font-size: 0.9rem; margin: 8px 0;">These entities appear in the source but were not found in the summary:</p>';
+                    html += '<div class="entities-list">';
+                    result.entity_alignment.mismatches.forEach(e => {
+                        html += '<span class="entity-tag mismatch">' + e.text + ' <small>(' + e.label + ')</small></span>';
+                    });
+                    html += '</div></div>';
+                }
+                
+                // Show Extra Entities (entities in summary but not in source)
+                if (result.entity_alignment.extra_entities && result.entity_alignment.extra_entities.length > 0) {
+                    html += '<div style="margin-bottom: 20px;">';
+                    html += '<strong style="color: #856404; font-size: 1.1rem;">➕ Extra Entities (' + result.entity_alignment.extra_entities.length + '):</strong>';
+                    html += '<p style="color: #666; font-size: 0.9rem; margin: 8px 0;">These entities appear in the summary but were not in the source:</p>';
+                    html += '<div class="entities-list">';
+                    result.entity_alignment.extra_entities.forEach(e => {
+                        html += '<span class="entity-tag" style="background: #fff3cd; color: #856404;">' + e.text + ' <small>(' + e.label + ')</small></span>';
+                    });
+                    html += '</div></div>';
+                }
+                
+                // Summary statistics
+                const totalSource = result.entity_alignment.source_entities ? result.entity_alignment.source_entities.length : 0;
+                const totalSummary = result.entity_alignment.summary_entities ? result.entity_alignment.summary_entities.length : 0;
+                const totalMatches = result.entity_alignment.matches ? result.entity_alignment.matches.length : 0;
+                const matchRate = totalSource > 0 ? ((totalMatches / totalSource) * 100).toFixed(1) : 0;
+                
+                html += '<div style="padding: 15px; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius: 8px; margin-top: 15px;">';
+                html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; text-align: center;">';
+                html += '<div><div style="font-size: 0.85rem; color: #666; margin-bottom: 5px;">Source Entities</div>';
+                html += '<div style="font-size: 1.5rem; font-weight: 700; color: #333;">' + totalSource + '</div></div>';
+                html += '<div><div style="font-size: 0.85rem; color: #666; margin-bottom: 5px;">Summary Entities</div>';
+                html += '<div style="font-size: 1.5rem; font-weight: 700; color: #333;">' + totalSummary + '</div></div>';
+                html += '<div><div style="font-size: 0.85rem; color: #666; margin-bottom: 5px;">Matches</div>';
+                html += '<div style="font-size: 1.5rem; font-weight: 700; color: #28a745;">' + totalMatches + '</div></div>';
+                html += '<div><div style="font-size: 0.85rem; color: #666; margin-bottom: 5px;">Match Rate</div>';
+                html += '<div style="font-size: 1.5rem; font-weight: 700; color: #667eea;">' + matchRate + '%</div></div>';
+                html += '</div></div>';
+            }
+            
+            // Heatmap Section with Chart
+            if (result.heatmap && result.heatmap.sentence_scores) {
+                html += '<div class="section-title">🔥 Confidence Heatmap</div>';
+                html += '<div style="position: relative; height: 400px; margin-top: 20px;">';
+                html += '<canvas id="heatmapChart"></canvas>';
             html += '</div>';
+            }
             
-            document.getElementById('results').innerHTML = html;
+            resultsDiv.innerHTML = html;
+            resultsDiv.classList.add('active');
+            
+            // Create Chart.js graph for heatmap
+            if (result.heatmap && result.heatmap.sentence_scores) {
+                const ctx = document.getElementById('heatmapChart');
+                if (ctx) {
+                    const scores = result.heatmap.sentence_scores;
+                    const labels = scores.map((_, i) => `Sentence ${i + 1}`);
+                    const percentages = scores.map(s => (s * 100).toFixed(1));
+                    
+                    // Destroy existing chart if it exists
+                    if (window.heatmapChartInstance) {
+                        window.heatmapChartInstance.destroy();
+                    }
+                    
+                    window.heatmapChartInstance = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Confidence Score (%)',
+                                data: percentages,
+                                backgroundColor: scores.map(score => {
+                                    // Green to red gradient
+                                    const red = Math.floor(255 * (1 - score));
+                                    const green = Math.floor(255 * score);
+                                    return `rgba(${red}, ${green}, 50, 0.8)`;
+                                }),
+                                borderColor: scores.map(score => {
+                                    const red = Math.floor(255 * (1 - score));
+                                    const green = Math.floor(255 * score);
+                                    return `rgba(${red}, ${green}, 50, 1)`;
+                                }),
+                                borderWidth: 2,
+                                borderRadius: 8
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return 'Confidence: ' + context.parsed.y + '%';
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    max: 100,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return value + '%';
+                                        }
+                                    },
+                                    title: {
+                                        display: true,
+                                        text: 'Confidence Score (%)'
+                                    }
+                                },
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: 'Summary Sentences'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+            
+            // Smooth scroll to results
+            resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
     </script>
 </body>

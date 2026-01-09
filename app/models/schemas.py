@@ -4,8 +4,8 @@ from typing import List, Dict
 class EvaluationRequest(BaseModel):
     source_text: str
     summary_text: str
-    source_lang: str = "en"
-    summary_lang: str = "en"
+    source_lang: str = "auto"  # "auto" for auto-detection
+    summary_lang: str = "auto"  # "auto" for auto-detection
 
 class EntailmentResult(BaseModel):
     score: float
@@ -14,7 +14,9 @@ class EntailmentResult(BaseModel):
 class EntityAlignment(BaseModel):
     source_entities: List[Dict]
     summary_entities: List[Dict]
-    mismatches: List[Dict]
+    matches: List[Dict]  # Entities that match across languages
+    mismatches: List[Dict]  # Entities in source but not in summary
+    extra_entities: List[Dict]  # Entities in summary but not in source
 
 class HeatmapData(BaseModel):
     sentence_scores: List[float]
@@ -24,3 +26,6 @@ class EvaluationResponse(BaseModel):
     entity_alignment: EntityAlignment
     heatmap: HeatmapData
     overall_confidence: float
+    detected_source_lang: str = "en"
+    detected_summary_lang: str = "en"
+    executive_summary: str = ""

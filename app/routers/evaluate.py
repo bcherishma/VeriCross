@@ -8,7 +8,22 @@ detector = HallucinationDetector()
 
 @router.post("/evaluate", response_model=EvaluationResponse)
 async def evaluate_summary(request: EvaluationRequest):
-    result = detector.evaluate(request.source_text, request.summary_text, request.source_lang, request.summary_lang)
+    # Auto-detect languages if not provided or if "auto" is specified
+    source_lang = request.source_lang
+    summary_lang = request.summary_lang
+    
+    if not source_lang or source_lang.lower() == "auto":
+        source_lang = detector.detect_language(request.source_text)
+    
+    if not summary_lang or summary_lang.lower() == "auto":
+        summary_lang = detector.detect_language(request.summary_text)
+    
+    result = detector.evaluate(request.source_text, request.summary_text, source_lang, summary_lang)
+    
+    # Add detected languages to the response
+    result["detected_source_lang"] = source_lang
+    result["detected_summary_lang"] = summary_lang
+    
     return EvaluationResponse(**result)
 
 @router.websocket("/ws/evaluate")
