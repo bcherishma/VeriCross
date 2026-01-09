@@ -86,9 +86,6 @@ python3 -m http.server 8080
 docker-compose up --build
 ```
 
-- Frontend: http://localhost
-- Backend API: http://localhost:8000
-
 ## 🚀 Usage
 
 ### Web Interface
@@ -102,59 +99,6 @@ docker-compose up --build
    - Semantic entailment score
    - Entity matches and mismatches
    - Interactive confidence heatmap chart
-
-### REST API
-
-**Endpoint**: `POST http://localhost:8000/evaluate`
-
-**Request Body**:
-```json
-{
-  "source_text": "Berlin ist die Hauptstadt von Deutschland.",
-  "summary_text": "Berlin is the capital of Germany.",
-  "source_lang": "auto",
-  "summary_lang": "auto"
-}
-```
-
-**Response**:
-```json
-{
-  "entailment": {
-    "score": 0.95,
-    "label": "entailment"
-  },
-  "entity_alignment": {
-    "source_entities": [...],
-    "summary_entities": [...],
-    "matches": [
-      {
-        "source_text": "Berlin",
-        "source_label": "LOC",
-        "summary_text": "Berlin",
-        "summary_label": "GPE",
-        "similarity": 0.99
-      },
-      {
-        "source_text": "Deutschland",
-        "source_label": "LOC",
-        "summary_text": "Germany",
-        "summary_label": "GPE",
-        "similarity": 0.92
-      }
-    ],
-    "mismatches": [],
-    "extra_entities": [],
-    "semantic_similarity": 0.94
-  },
-  "heatmap": {
-    "sentence_scores": [0.95, 0.92]
-  },
-  "overall_confidence": 0.93,
-  "detected_source_lang": "de",
-  "detected_summary_lang": "en"
-}
-```
 
 ### WebSocket
 
@@ -239,14 +183,9 @@ If port 8000 or 8080 is already in use:
 - Backend: Change port in `run_backend.sh` or use `uvicorn app.main:app --port 8001`
 - Frontend: Use `python3 -m http.server 8081`
 
-## 📄 License
-
-[Add your license here]
-
-## 🤝 Contributing
-
-[Add contribution guidelines here]
 
 ## 📧 Contact
 
-[Add contact information here]
+cherishmawork@gmail.com
+https://www.linkedin.com/in/cherishma-bodapati-940158258
+
