@@ -65,7 +65,7 @@ An automated evaluation suite to detect hallucinations in generative model summa
 #### Backend
 
 ```bash
-cd VeriCross/VeriCross
+cd VeriCross/VERICROSS
 python3.10 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt

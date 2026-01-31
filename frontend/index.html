@@ -69,7 +69,6 @@
         }
         .submit-btn:hover:not(:disabled) { background: var(--primary-dark); transform: translateY(-2px); }
 
-        /* --- Results UI --- */
         .results-grid { display: grid; grid-template-columns: 320px 1fr; gap: 35px; }
         @media (max-width: 992px) { .results-grid { grid-template-columns: 1fr; } }
 
@@ -86,14 +85,14 @@
             line-height: 2.2; font-size: 1.1rem; color: #334155;
         }
 
-        .sentence-span { padding: 2px 0; border-bottom: 3px solid; margin-right: 4px; border-radius: 2px; cursor: help; }
+        .sentence-span { padding: 2px 4px; border-bottom: 3px solid; margin-right: 4px; border-radius: 4px; cursor: help; }
 
         .entity-chip {
             display: inline-flex; align-items: center; padding: 6px 14px;
             border-radius: 99px; font-size: 0.85rem; font-weight: 600; margin: 4px;
         }
-        .chip-match { background: #dcfce7; color: #166534; }
-        .chip-miss { background: #fee2e2; color: #991b1b; }
+        .chip-match { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .chip-miss { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
 
         .loader { display: none; text-align: center; margin-top: 20px; }
         .loader.active { display: block; }
@@ -116,12 +115,12 @@
             <form id="evaluationForm">
                 <div class="input-grid">
                     <div>
-                        <label><i class="fas fa-database"></i> Source Context</label>
-                        <textarea id="source" placeholder="Ground truth text..."></textarea>
+                        <label><i class="fas fa-database"></i> Source Context (Ground Truth)</label>
+                        <textarea id="source" placeholder="Paste source text (e.g. Hindi report)..."></textarea>
                     </div>
                     <div>
-                        <label><i class="fas fa-robot"></i>Summary Content</label>
-                        <textarea id="summary" placeholder="Summary to verify..."></textarea>
+                        <label><i class="fas fa-robot"></i> Summary Content (To Verify)</label>
+                        <textarea id="summary" placeholder="Paste generated summary (e.g. English)..."></textarea>
                     </div>
                 </div>
                 <button type="submit" class="submit-btn" id="submitBtn">
@@ -132,7 +131,7 @@
 
             <div class="loader" id="loading">
                 <div class="spinner"></div>
-                <p style="color: var(--text-muted)">Cross-referencing entities and semantic entailment...</p>
+                <p style="color: var(--text-muted)">Running Cross-Lingual Entailment Checks...</p>
             </div>
         </main>
 
@@ -150,7 +149,7 @@
             const sourceText = document.getElementById('source').value.trim();
             const summaryText = document.getElementById('summary').value.trim();
             
-            if (!sourceText || !summaryText) return alert('Fill both fields.');
+            if (!sourceText || !summaryText) return alert('Please provide both source and summary.');
             
             loadingDiv.classList.add('active');
             resultsDiv.style.display = 'none';
@@ -162,10 +161,13 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ source_text: sourceText, summary_text: summaryText })
                 });
+                if (!response.ok) throw new Error('Backend Server Error');
                 const result = await response.json();
                 displayResults(result, summaryText);
             } catch (error) {
-                resultsDiv.innerHTML = `<p style="color:red">Connection Error: ${error.message}</p>`;
+                resultsDiv.innerHTML = `<p style="color:var(--danger); text-align:center; padding: 20px;">
+                    <i class="fas fa-exclamation-triangle"></i> Error: ${error.message}. Is your FastAPI server running?
+                </p>`;
                 resultsDiv.style.display = 'block';
             } finally {
                 loadingDiv.classList.remove('active');
@@ -177,26 +179,28 @@
             const confidence = result.overall_confidence || 0;
             const statusColor = confidence > 0.7 ? '#10b981' : confidence > 0.4 ? '#f59e0b' : '#ef4444';
             
-            // Split summary into sentences for the highlighter
+            // Sentence splitting logic
             const sentences = rawSummary.match(/[^.!?]+[.!?]+|\S+/g) || [rawSummary];
-            const sentenceScores = result.heatmap.sentence_scores || [];
+            const sentenceScores = result.heatmap?.sentence_scores || [];
 
             resultsDiv.style.display = 'block';
             resultsDiv.innerHTML = `
                 <div class="results-grid">
                     <aside>
                         <div class="stat-box">
-                            <label>Reliability</label>
+                            <label>Reliability Score</label>
                             <div class="confidence-val" style="color: ${statusColor}">${(confidence * 100).toFixed(0)}%</div>
-                            <small style="font-weight:800; color:var(--text-muted)">${result.entailment.label.toUpperCase()}</small>
+                            <small style="font-weight:800; color:var(--text-muted)">${result.entailment?.label?.toUpperCase() || 'N/A'}</small>
                         </div>
                         <div class="stat-box">
-                            <label>Distribution</label>
-                            <div style="height: 180px;"><canvas id="doughnutChart"></canvas></div>
+                            <label>Factual Density</label>
+                            <div style="height: 160px;"><canvas id="doughnutChart"></canvas></div>
                         </div>
                         <div class="stat-box">
-                            <label>Lang Pair</label>
-                            <div style="font-weight:700;">${result.detected_source_lang.toUpperCase()} <i class="fas fa-arrow-right"></i> ${result.detected_summary_lang.toUpperCase()}</div>
+                            <label>Detected Languages</label>
+                            <div style="font-weight:700; font-size: 0.9rem;">
+                                ${result.detected_source_lang?.toUpperCase()} <i class="fas fa-arrow-right" style="margin:0 5px; color:var(--primary)"></i> ${result.detected_summary_lang?.toUpperCase()}
+                            </div>
                         </div>
                     </aside>
 
@@ -204,7 +208,7 @@
                         <label>Executive Analysis</label>
                         <div class="exec-summary">${result.executive_summary}</div>
 
-                        <label>Annotated Highlighter</label>
+                        <label>Annotated Content (Hover for details)</label>
                         <div class="annotated-box">
                             ${sentences.map((sent, i) => {
                                 const score = sentenceScores[i] || 0.5;
@@ -217,19 +221,27 @@
 
                         <div style="margin-top:30px; display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
                             <div>
-                                <label><i class="fas fa-check-circle"></i> Matched Entities</label>
+                                <label><i class="fas fa-check-circle" style="color:var(--accent)"></i> Verified Facts</label>
                                 <div style="margin-top:10px">
                                     ${result.entity_alignment.matches.length > 0 ? 
-                                        result.entity_alignment.matches.map(m => `<span class="entity-chip chip-match">${m.summary_text}</span>`).join('') : 
-                                        '<small>None</small>'}
+                                        result.entity_alignment.matches.map(m => `
+                                            <span class="entity-chip chip-match" title="Source Ref: ${m.source_text || m.source || 'Verified'}">
+                                                ${m.summary_text || m.text || 'Unknown Entity'}
+                                            </span>
+                                        `).join('') : 
+                                        '<small style="color:var(--text-muted)">No entities confirmed</small>'}
                                 </div>
                             </div>
                             <div>
-                                <label><i class="fas fa-times-circle"></i> Missing Entities</label>
+                                <label><i class="fas fa-times-circle" style="color:var(--danger)"></i> Missing/Unverified</label>
                                 <div style="margin-top:10px">
                                     ${result.entity_alignment.mismatches.length > 0 ? 
-                                        result.entity_alignment.mismatches.map(m => `<span class="entity-chip chip-miss">${m.text}</span>`).join('') : 
-                                        '<small>None</small>'}
+                                        result.entity_alignment.mismatches.map(m => `
+                                            <span class="entity-chip chip-miss">
+                                                ${typeof m === 'string' ? m : (m.text || m.source_text)}
+                                            </span>
+                                        `).join('') : 
+                                        '<small style="color:var(--text-muted)">None</small>'}
                                 </div>
                             </div>
                         </div>
@@ -237,7 +249,7 @@
                 </div>
             `;
 
-            renderDoughnut(sentenceScores);
+            if(sentenceScores.length > 0) renderDoughnut(sentenceScores);
             resultsDiv.scrollIntoView({ behavior: 'smooth' });
         }
 
@@ -250,17 +262,19 @@
             new Chart(ctx, {
                 type: 'doughnut',
                 data: {
-                    labels: ['Safe', 'Caution', 'Risk'],
+                    labels: ['Verified', 'Partial', 'Unverified'],
                     datasets: [{
                         data: [high, med, low],
                         backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
                         borderWidth: 0,
-                        borderRadius: 5
+                        hoverOffset: 4
                     }]
                 },
                 options: {
-                    responsive: true, maintainAspectRatio: false, cutout: '70%',
-                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '75%',
+                    plugins: { legend: { display: false } }
                 }
             });
         }
